@@ -397,6 +397,9 @@ tr:hover td { background: var(--surface2); }
           <div class="form-group"><label>Mensaje WhatsApp por defecto</label><textarea id="cfgWaMsg" placeholder="Hola! Me interesa un producto 👋"></textarea></div>
           <div class="form-group"><label>Nueva contraseña de admin</label><input type="password" id="cfgPass" placeholder="Dejar vacío para no cambiar"></div>
           <button class="btn btn-primary" onclick="saveConfig()">💾 Guardar cambios</button>
+          <hr style="border-color:var(--border);margin:8px 0">
+          <button class="btn btn-secondary" onclick="exportData()">📤 Exportar datos (JSON)</button>
+          <label class="btn btn-secondary" style="cursor:pointer;text-align:center">📥 Importar datos (JSON)<input type="file" accept=".json" onchange="importData(this)" style="display:none"></label>
         </div>
       </div>
     </div>
@@ -485,19 +488,58 @@ const _dbDefaults = {
 };
 
 async function initStorage() {
+  let hasData = false;
   for (const key of Object.keys(_dbDefaults)) {
     try {
       const val = await dbGet(key);
       _dbCache[key] = val !== undefined ? val : JSON.parse(JSON.stringify(_dbDefaults[key]));
+      if (val !== undefined) hasData = true;
     } catch {
       _dbCache[key] = JSON.parse(JSON.stringify(_dbDefaults[key]));
     }
+  }
+  if (!hasData) {
+    try {
+      const res = await fetch('data.json');
+      if (res.ok) {
+        const seed = await res.json();
+        for (const key of Object.keys(seed)) {
+          if (_dbDefaults[key] !== undefined) {
+            _dbCache[key] = seed[key];
+            await dbSet(key, seed[key]);
+          }
+        }
+        console.log('Seed data loaded from data.json');
+      }
+    } catch {}
   }
 }
 
 function loadData(k, d) { return _dbCache[k] !== undefined ? _dbCache[k] : d; }
 async function saveDataAsync(k, v) { _dbCache[k] = v; try { await dbSet(k, v); } catch (e) { console.error('IndexedDB error', e); } }
 function saveData(k, v) { _dbCache[k] = v; dbSet(k, v).catch(e => console.error('IndexedDB error', e)); }
+
+function exportData() {
+  const data = { tz_products: loadData('tz_products', []), tz_ventas: loadData('tz_ventas', []), tz_config: loadData('tz_config', {}) };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'naftech-backup.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importData(input) {
+  const file = input.files[0]; if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data.tz_products !== undefined) await saveDataAsync('tz_products', data.tz_products);
+    if (data.tz_ventas !== undefined) await saveDataAsync('tz_ventas', data.tz_ventas);
+    if (data.tz_config !== undefined) await saveDataAsync('tz_config', data.tz_config);
+    products = loadData('tz_products', []); ventas = loadData('tz_ventas', []); config = loadData('tz_config', {});
+    alert('✅ Datos importados correctamente. Recarga la página para aplicar los cambios.');
+  } catch (e) { alert('❌ Error al importar: ' + e.message); }
+  input.value = '';
+}
 
 let products = [];
 let ventas = [];
