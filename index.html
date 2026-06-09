@@ -667,6 +667,7 @@ function openDetail(id){
   const track=document.getElementById('detailTrack');
   if(currentDetailMedia.length===0){
     track.innerHTML=`<div class="detail-carousel-slide">${getCatEmoji(p.categoria)}</div>`;
+    track.style.transform = 'translateX(0)';
     document.getElementById('detailPrev').style.display='none';
     document.getElementById('detailNext').style.display='none';
   } else {
@@ -674,6 +675,7 @@ function openDetail(id){
       ?`<div class="detail-carousel-slide"><video src="${m.data}" controls></video></div>`
       :`<div class="detail-carousel-slide"><img src="${m.data}" alt="${p.nombre}"></div>`
     ).join('');
+    track.style.transform = 'translateX(0)';
     const show=currentDetailMedia.length>1;
     document.getElementById('detailPrev').style.display=show?'flex':'none';
     document.getElementById('detailNext').style.display=show?'flex':'none';
