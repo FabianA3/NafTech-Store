@@ -127,9 +127,11 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .detail-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 600; align-items: center; justify-content: center; padding: 20px; }
 .detail-modal-overlay.open { display: flex; }
 .detail-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: 90%; max-width: 680px; max-height: 90vh; overflow-y: auto; animation: modal-in 0.25s ease; }
-.detail-carousel { position: relative; width: 100%; height: 460px; max-height: 55vh; background: var(--surface2); overflow: hidden; border-radius: var(--radius) var(--radius) 0 0; }
-.detail-carousel-track { display: flex; height: 100%; transition: transform 0.35s ease; }
-.detail-carousel-slide { min-width: 100%; height: 100%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.detail-carousel { position: relative; width: 100%; height: 460px; max-height: 55vh; background: var(--surface2); overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; border-radius: var(--radius) var(--radius) 0 0; }
+.detail-carousel::-webkit-scrollbar { display: none; }
+.detail-carousel { scrollbar-width: none; }
+.detail-carousel-track { display: flex; height: 100%; }
+.detail-carousel-slide { min-width: 100%; height: 100%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; scroll-snap-align: start; }
 .detail-carousel-slide img { width: auto; height: auto; max-width: calc(100% - 24px); max-height: calc(100% - 24px); object-fit: contain; display: block; border-radius: 4px; }
 .detail-carousel-slide video { width: auto; height: auto; max-width: calc(100% - 24px); max-height: calc(100% - 24px); object-fit: contain; display: block; }
 .detail-carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); border: none; color: white; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; z-index: 5; transition: background 0.2s; }
@@ -696,12 +698,21 @@ function openDetail(id){
 
 function moveDetailCarousel(dir){
   if(!currentDetailMedia.length) return;
-  currentDetailIdx=(currentDetailIdx+dir+currentDetailMedia.length)%currentDetailMedia.length;
-  document.getElementById('detailTrack').style.transform=`translateX(-${currentDetailIdx*100}%)`;
-  document.querySelectorAll('[id^="ddot-"]').forEach((d,i)=>d.classList.toggle('active',i===currentDetailIdx));
-  // Pause/play videos
-  document.querySelectorAll('#detailTrack video').forEach((v,i)=>{ i===currentDetailIdx?v.play().catch(()=>{}):v.pause(); });
+  const carousel = document.getElementById('detailCarousel');
+  const slideW = carousel.clientWidth;
+  carousel.scrollBy({ left: dir * slideW, behavior: 'smooth' });
 }
+
+// Sync dots when scroll ends
+document.getElementById('detailCarousel').addEventListener('scroll', ()=>{
+  const carousel = document.getElementById('detailCarousel');
+  const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+  if (idx !== currentDetailIdx) {
+    currentDetailIdx = idx;
+    document.querySelectorAll('[id^="ddot-"]').forEach((d,i)=>d.classList.toggle('active',i===currentDetailIdx));
+    document.querySelectorAll('#detailTrack video').forEach((v,i)=>{ i===currentDetailIdx?v.play().catch(()=>{}):v.pause(); });
+  }
+});
 
 // ════ ADMIN ════
 function refreshAdmin(){ products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]); config=loadData('tz_config',{nombre:'TechZone',wa:'573000000000',waMsg:'Hola!',pass:ADMIN_PASS_DEFAULT}); renderDashboard(); renderProductsTable(); renderVentaForm(); renderHistorial(); }
