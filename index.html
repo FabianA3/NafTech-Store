@@ -691,8 +691,8 @@ function openDetail(id){
   document.getElementById('dDesc').innerHTML=renderDesc(p.descripcion||'');
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
-  document.getElementById('detailModal').querySelector('.detail-modal').scrollTop = 0;
   document.getElementById('detailModal').classList.add('open');
+  requestAnimationFrame(()=>document.getElementById('detailModal').querySelector('.detail-modal').scrollTop=0);
 }
 
 function moveDetailCarousel(dir){
