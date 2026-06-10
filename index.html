@@ -105,6 +105,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 .product-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 .product-price { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.15rem; color: var(--accent2); }
+.product-old-price { font-size: 0.85rem; color: var(--text2); text-decoration: line-through; margin-right: 8px; }
+.detail-old-price { font-size: 1rem; color: var(--text2); text-decoration: line-through; margin-right: 10px; }
 .stock-badge { font-size: 0.72rem; font-weight: 500; padding: 4px 12px; border-radius: 50px; }
 .stock-ok { background: rgba(16,185,129,0.15); color: var(--green); }
 .stock-low { background: rgba(245,158,11,0.15); color: var(--yellow); }
@@ -421,6 +423,7 @@ tr:hover td { background: var(--surface2); }
         <select id="pCategoria"><option>Audífonos</option><option>Cargadores</option><option>Vidrios protectores</option><option>Cases</option><option>Cables</option><option>Powerbanks</option><option>Accesorios</option><option>Otros</option></select>
       </div>
       <div class="form-group"><label>Precio de venta ($) *</label><input type="number" id="pPrecio" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Precio anterior ($)</label><input type="number" id="pPrecioAnterior" placeholder="0" min="0"></div>
       <div class="form-group"><label>Stock disponible *</label><input type="number" id="pStock" placeholder="0" min="0"></div>
       <div class="form-group"><label>Stock mínimo (alerta)</label><input type="number" id="pStockMin" placeholder="3" min="0"></div>
       <div class="form-group full">
@@ -625,6 +628,7 @@ function renderProductCards(list){
     }
     const dotsHTML=media.length>1?media.map((_,i)=>`<div class="carousel-dot ${i===0?'active':''}" id="dot-${p.id}-${i}"></div>`).join(''):'';
     const precio=formatPrecio(p.precio);
+    const oldPrecio = p.precioAnterior ? `<span class="product-old-price">$${formatPrecio(p.precioAnterior)}</span>` : '';
     const descHTML=renderDesc(p.descripcion||'');
     return `<div class="product-card">
       <div class="card-category">${p.categoria}</div>
@@ -637,7 +641,7 @@ function renderProductCards(list){
         <div class="product-name">${p.nombre}</div>
         <div class="product-desc">${descHTML}</div>
         <div class="product-footer">
-          <div class="product-price">$${precio}</div>
+          <div class="product-price">${oldPrecio}$${precio}</div>
           <span class="stock-badge ${sc}">${st}</span>
         </div>
       </div>
@@ -691,7 +695,8 @@ function openDetail(id){
   // Info
   document.getElementById('dCat').textContent=p.categoria;
   document.getElementById('dNombre').textContent=p.nombre;
-  document.getElementById('dPrecio').textContent=`$${formatPrecio(p.precio)}`;
+  const oldHtml = p.precioAnterior ? `<span class="detail-old-price">$${formatPrecio(p.precioAnterior)}</span>` : '';
+  document.getElementById('dPrecio').innerHTML = `${oldHtml}$${formatPrecio(p.precio)}`;
   const sc=p.stock===0?'stock-out':p.stock<=p.stockMin?'stock-low':'stock-ok';
   const st=p.stock===0?'Sin stock':p.stock<=p.stockMin?`⚠️ Solo ${p.stock} disponibles`:`✅ ${p.stock} en stock`;
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
@@ -771,6 +776,7 @@ function openProductModal(id=null){
     document.getElementById('pNombre').value=p.nombre;
     document.getElementById('pCategoria').value=p.categoria;
     document.getElementById('pPrecio').value=p.precio;
+    document.getElementById('pPrecioAnterior').value=p.precioAnterior||'';
     document.getElementById('pStock').value=p.stock;
     document.getElementById('pStockMin').value=p.stockMin||3;
     document.getElementById('pDesc').value=p.descripcion||'';
@@ -779,6 +785,7 @@ function openProductModal(id=null){
   } else {
     document.getElementById('pNombre').value = '';
     document.getElementById('pPrecio').value = '';
+    document.getElementById('pPrecioAnterior').value = '';
     document.getElementById('pStock').value  = '';
     document.getElementById('pDesc').value   = '';
     document.getElementById('pCategoria').value = 'Audífonos';
@@ -827,8 +834,10 @@ function removeMedia(idx){ currentMedia.splice(idx,1); renderMediaPreviews(); }
 async function saveProduct(){
   const nombre = document.getElementById('pNombre').value.trim();
   const precioRaw = document.getElementById('pPrecio').value;
+  const precioAntRaw = document.getElementById('pPrecioAnterior').value;
   const stockRaw  = document.getElementById('pStock').value;
   const precio = precioRaw === '' ? NaN : parseFloat(precioRaw);
+  const precioAnterior = precioAntRaw === '' ? null : parseFloat(precioAntRaw);
   const stock  = stockRaw  === '' ? NaN : parseInt(stockRaw);
 
   if (!nombre) { showToast('El nombre es obligatorio','error'); return; }
@@ -840,6 +849,7 @@ async function saveProduct(){
     nombre,
     categoria: document.getElementById('pCategoria').value,
     precio, stock,
+    precioAnterior,
     stockMin: parseInt(document.getElementById('pStockMin').value) || 3,
     descripcion: document.getElementById('pDesc').value.trim(),
     media: [...currentMedia]
