@@ -191,28 +191,5 @@
     "wa": "+573142276424",
     "waMsg": "Hola! Me interesa un producto de tu tienda 👋",
     "pass": "NafTech2026"
-  },
-  "tz_reviews": [
-    {
-      "id": "review1",
-      "productId": "1780704285525",
-      "nombre": "Carlos M.",
-      "texto": "Excelentes audífonos, el sonido es muy bueno y llegaron súper rápido. Recomendados!",
-      "fecha": "10/6/2025"
-    },
-    {
-      "id": "review2",
-      "productId": "1780704285525",
-      "nombre": "Laura G.",
-      "texto": "Muy buena calidad, se sienten premium. La batería me dura varios días.",
-      "fecha": "15/6/2025"
-    },
-    {
-      "id": "review3",
-      "productId": "1780706511496",
-      "nombre": "Andrés P.",
-      "texto": "Los AirPods Pro 2 son una maravilla, cancelación de ruido espectacular.",
-      "fecha": "20/6/2025"
-    }
-  ]
+  }
 }
