@@ -146,7 +146,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .detail-body { padding: 24px; }
 .detail-category { font-size: 0.75rem; color: var(--accent2); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 .detail-name { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; margin-bottom: 12px; }
-.detail-price { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--accent2); margin-bottom: 16px; }
+.detail-prices { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.detail-price { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--accent2); line-height: 1.2; }
+.detail-old-price { font-size: 0.95rem; color: var(--text2); text-decoration: line-through; line-height: 1.2; }
 .detail-stock { margin-bottom: 20px; }
 .detail-desc {
   color: var(--text2); font-size: 0.875rem; line-height: 1.75;
@@ -299,7 +301,7 @@ tr:hover td { background: var(--surface2); }
     <div class="detail-body">
       <div class="detail-category" id="dCat"></div>
       <div class="detail-name" id="dNombre"></div>
-      <div class="detail-price" id="dPrecio"></div>
+      <div class="detail-prices" id="dPrecio"></div>
       <div class="detail-stock" id="dStock"></div>
       <div class="detail-desc" id="dDesc"></div>
       <button class="detail-wa" id="dWaBtn">💬 Consultar por WhatsApp</button>
@@ -701,7 +703,7 @@ function openDetail(id){
   document.getElementById('dCat').textContent=p.categoria;
   document.getElementById('dNombre').textContent=p.nombre;
   const oldHtml = p.precioAnterior ? `<span class="detail-old-price">$${formatPrecio(p.precioAnterior)}</span>` : '';
-  document.getElementById('dPrecio').innerHTML = `${oldHtml}$${formatPrecio(p.precio)}`;
+  document.getElementById('dPrecio').innerHTML = `${oldHtml}<span class="detail-price">$${formatPrecio(p.precio)}</span>`;
   const sc=p.stock===0?'stock-out':p.stock<=p.stockMin?'stock-low':'stock-ok';
   const st=p.stock===0?'Sin stock':p.stock<=p.stockMin?`⚠️ Solo ${p.stock} disponibles`:`✅ ${p.stock} en stock`;
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
