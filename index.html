@@ -736,9 +736,10 @@ function openDetail(id){
       <div style="display:flex;flex-direction:column;gap:8px">
         <input type="text" id="reviewName" placeholder="Tu nombre" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none">
         <textarea id="reviewText" placeholder="Escribe tu reseña..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;min-height:70px;resize:vertical"></textarea>
-        <button class="detail-wa" onclick="submitReview('${p.id}')">⭐ Enviar reseña</button>
+        <button class="detail-wa" id="reviewSubmitBtn">⭐ Enviar reseña</button>
       </div>`;
     reviewsContainer.innerHTML = html;
+    document.getElementById('reviewSubmitBtn').onclick = () => submitReview(p.id);
   }).catch(() => {
     reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
   });
