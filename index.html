@@ -43,6 +43,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 }
 .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
 .header-right { display: flex; gap: 12px; align-items: center; margin-left: auto; }
+.header-admin { display: flex; align-items: center; }
 .search-bar { background: var(--surface2); border: 1px solid var(--border); border-radius: 50px; padding: 8px 18px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.875rem; width: 220px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
 .search-bar:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .search-bar::placeholder { color: var(--text2); }
@@ -251,13 +252,15 @@ tr:hover td { background: var(--surface2); }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 @media (max-width: 768px) {
-  .store-header { padding: 0 16px; height: auto; padding-top: 10px; row-gap: 8px; padding-bottom: 10px; }
+  .store-header { padding: 0 16px; height: auto; padding-top: 10px; row-gap: 8px; padding-bottom: 10px; flex-wrap: wrap; }
   .store-main, .categories { padding-left: 16px; padding-right: 16px; }
   .products-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .admin-sidebar { display: none; }
   .admin-content { padding: 20px; }
-  .search-bar { width: 100%; order: 3; }
+  .header-right { width: 100%; order: 3; }
+  .search-bar { width: 100%; }
+  .header-admin { margin-left: auto; }
 }
 </style>
 </head>
@@ -267,8 +270,10 @@ tr:hover td { background: var(--surface2); }
 <div id="page-store" class="page active">
   <header class="store-header">
     <div class="logo">Naf<span style="-webkit-text-fill-color:var(--accent2)">Tech Store</span></div>
-    <input class="search-bar" type="text" id="searchInput" placeholder="🔍 Buscar productos..." oninput="filterProducts()">
     <div class="header-right">
+      <input class="search-bar" type="text" id="searchInput" placeholder="🔍 Buscar productos..." oninput="filterProducts()">
+    </div>
+    <div class="header-admin">
       <a href="#" class="btn btn-secondary btn-sm" onclick="goAdmin(event)">⚙️ Admin</a>
     </div>
   </header>
