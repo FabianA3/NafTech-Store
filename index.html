@@ -152,6 +152,14 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .detail-desc li { margin-bottom: 4px; }
 .detail-wa { width: 100%; padding: 14px; background: linear-gradient(135deg, #25d366, #128c7e); border: none; color: white; border-radius: var(--radius-sm); font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .detail-wa:hover { opacity: 0.9; }
+.detail-reviews { margin-bottom: 20px; }
+.detail-reviews-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+.detail-review-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; }
+.detail-review-author { font-weight: 600; font-size: 0.85rem; color: var(--accent2); }
+.detail-review-date { font-size: 0.7rem; color: var(--text2); margin-left: 8px; }
+.detail-review-text { font-size: 0.85rem; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+.detail-review-wa-btn { display: block; width: 100%; padding: 10px; margin-top: 8px; background: rgba(212,175,55,0.1); border: 1px dashed var(--accent); color: var(--accent); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; cursor: pointer; transition: background 0.2s; text-align: center; }
+.detail-review-wa-btn:hover { background: rgba(212,175,55,0.2); }
 
 /* ─── WHATSAPP FLOTANTE ─── */
 .wa-btn { position: fixed; bottom: 28px; right: 28px; width: 60px; height: 60px; background: linear-gradient(135deg, #25d366, #128c7e); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; box-shadow: 0 6px 24px rgba(37,211,102,0.4); cursor: pointer; text-decoration: none; transition: transform 0.2s; z-index: 999; animation: wa-pulse 2s infinite; }
@@ -297,6 +305,7 @@ tr:hover td { background: var(--surface2); }
       <div class="detail-price" id="dPrecio"></div>
       <div class="detail-stock" id="dStock"></div>
       <div class="detail-desc" id="dDesc"></div>
+      <div class="detail-reviews" id="dReviews"></div>
       <button class="detail-wa" id="dWaBtn">💬 Consultar por WhatsApp</button>
     </div>
   </div>
@@ -434,6 +443,15 @@ tr:hover td { background: var(--surface2); }
         </div>
         <div class="media-preview-grid" id="mediaPreviewGrid"></div>
       </div>
+      <div class="form-group full" id="reviewsAdminSection" style="display:none">
+        <label>⭐ Reseñas del producto</label>
+        <div id="reviewsAdminList"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <input type="text" id="revNombre" placeholder="Nombre del cliente" style="flex:1;min-width:120px">
+          <input type="text" id="revTexto" placeholder="Texto de la reseña" style="flex:2;min-width:160px">
+          <button class="btn btn-primary btn-sm" onclick="addReview()">Agregar</button>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('productModal')">Cancelar</button>
@@ -485,6 +503,7 @@ async function dbSet(key, value) {
 const _dbDefaults = {
   tz_products: [],
   tz_ventas: [],
+  tz_reviews: {},
   tz_config: { nombre: 'NafTech Store', wa: '573000000000', waMsg: 'Hola! Me interesa un producto de tu tienda 👋', pass: ADMIN_PASS_DEFAULT }
 };
 
@@ -545,6 +564,7 @@ async function importData(input) {
 let products = [];
 let ventas = [];
 let config = {};
+let reviews = {};
 
 // ════ NAVEGACIÓN ════
 function showPage(id){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
@@ -623,6 +643,7 @@ function renderProductCards(list){
     const dotsHTML=media.length>1?media.map((_,i)=>`<div class="carousel-dot ${i===0?'active':''}" id="dot-${p.id}-${i}"></div>`).join(''):'';
     const precio=formatPrecio(p.precio);
     const descHTML=renderDesc(p.descripcion||'');
+    const reviewCount=(reviews[p.id]||[]).length;
     return `<div class="product-card">
       <div class="card-category">${p.categoria}</div>
       <div class="card-carousel" id="cc-${p.id}">
@@ -637,6 +658,7 @@ function renderProductCards(list){
           <div class="product-price">$${precio}</div>
           <span class="stock-badge ${sc}">${st}</span>
         </div>
+        ${reviewCount>0?`<div style="font-size:0.75rem;color:var(--accent2);margin-top:4px">⭐ ${reviewCount} reseña${reviewCount>1?'s':''}</div>`:''}
       </div>
       <button class="product-wa-btn" onclick="openDetail('${p.id}')">👁 Ver detalle</button>
     </div>`;
@@ -692,6 +714,16 @@ function openDetail(id){
   const st=p.stock===0?'Sin stock':p.stock<=p.stockMin?`⚠️ Solo ${p.stock} disponibles`:`✅ ${p.stock} en stock`;
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
   document.getElementById('dDesc').innerHTML=renderDesc(p.descripcion||'');
+  // Reviews
+  const reviewsContainer = document.getElementById('dReviews');
+  const productReviews = (reviews[p.id]||[]);
+  let reviewsHTML = '';
+  if (productReviews.length > 0) {
+    reviewsHTML = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
+      productReviews.map(r => `<div class="detail-review-item"><div><span class="detail-review-author">${r.nombre}</span><span class="detail-review-date">${r.fecha}</span></div><div class="detail-review-text">${r.texto}</div></div>`).join('');
+  }
+  reviewsHTML += `<button class="detail-review-wa-btn" onclick="window.open('https://wa.me/${config.wa}?text=${encodeURIComponent('Hola! Quiero dejar una reseña para: *' + p.nombre + '*')}','_blank')">💬 Dejar una reseña</button>`;
+  reviewsContainer.innerHTML = reviewsHTML;
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
   document.getElementById('detailModal').classList.add('open');
@@ -708,7 +740,7 @@ function moveDetailCarousel(dir){
 }
 
 // ════ ADMIN ════
-function refreshAdmin(){ products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]); config=loadData('tz_config',{nombre:'TechZone',wa:'573000000000',waMsg:'Hola!',pass:ADMIN_PASS_DEFAULT}); renderDashboard(); renderProductsTable(); renderVentaForm(); renderHistorial(); }
+function refreshAdmin(){ products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]); reviews=loadData('tz_reviews',{}); config=loadData('tz_config',{nombre:'TechZone',wa:'573000000000',waMsg:'Hola!',pass:ADMIN_PASS_DEFAULT}); renderDashboard(); renderProductsTable(); renderVentaForm(); renderHistorial(); }
 
 function renderDashboard(){
   products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]);
@@ -771,6 +803,8 @@ function openProductModal(id=null){
     document.getElementById('pDesc').value=p.descripcion||'';
     currentMedia=[...(p.media||[])];
     renderMediaPreviews();
+    document.getElementById('reviewsAdminSection').style.display='block';
+    renderAdminReviews(reviews[id]||[]);
   } else {
     document.getElementById('pNombre').value = '';
     document.getElementById('pPrecio').value = '';
@@ -778,6 +812,7 @@ function openProductModal(id=null){
     document.getElementById('pDesc').value   = '';
     document.getElementById('pCategoria').value = 'Audífonos';
     document.getElementById('pStockMin').value  = '3';
+    document.getElementById('reviewsAdminSection').style.display='none';
   }
   document.getElementById('productModal').classList.add('open');
 }
@@ -788,6 +823,8 @@ function deleteProduct(id){
   if(!confirm('¿Eliminar este producto?')) return;
   products=products.filter(p=>p.id!==id);
   saveData('tz_products',products);
+  delete reviews[id];
+  saveData('tz_reviews', reviews);
   renderProductsTable(); renderStore();
   showToast('Producto eliminado','info');
 }
@@ -818,6 +855,44 @@ function renderMediaPreviews(){
 }
 
 function removeMedia(idx){ currentMedia.splice(idx,1); renderMediaPreviews(); }
+
+function renderAdminReviews(reviewsList) {
+  const container = document.getElementById('reviewsAdminList');
+  if (!reviewsList || reviewsList.length === 0) {
+    container.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Sin reseñas aún</div>';
+    return;
+  }
+  container.innerHTML = reviewsList.map((r,i) =>
+    `<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px">
+      <div style="flex:1"><strong style="color:var(--accent2);font-size:0.85rem">${r.nombre}</strong><span style="color:var(--text2);font-size:0.75rem;margin-left:8px">${r.fecha}</span><br><span style="font-size:0.82rem;color:var(--text2)">${r.texto}</span></div>
+      <button class="btn btn-danger btn-sm" onclick="deleteReview(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+function addReview() {
+  const nombre = document.getElementById('revNombre').value.trim();
+  const texto = document.getElementById('revTexto').value.trim();
+  if (!nombre || !texto) { showToast('Completa nombre y texto de la reseña','error'); return; }
+  const productId = editingId;
+  if (!productId) return;
+  reviews[productId] = reviews[productId] || [];
+  reviews[productId].push({ nombre, texto, fecha: new Date().toLocaleDateString('es-CO') });
+  saveData('tz_reviews', reviews);
+  document.getElementById('revNombre').value = '';
+  document.getElementById('revTexto').value = '';
+  renderAdminReviews(reviews[productId]);
+  showToast('Reseña agregada ✓','success');
+}
+
+function deleteReview(idx) {
+  const productId = editingId;
+  if (!productId || !reviews[productId]) return;
+  reviews[productId].splice(idx, 1);
+  if (reviews[productId].length === 0) delete reviews[productId];
+  saveData('tz_reviews', reviews);
+  renderAdminReviews(reviews[productId]||[]);
+}
 
 async function saveProduct(){
   const nombre = document.getElementById('pNombre').value.trim();
@@ -949,6 +1024,7 @@ function saveConfig(){ config.nombre=document.getElementById('cfgNombre').value.
   await initStorage();
   products = loadData('tz_products',[]);
   ventas   = loadData('tz_ventas',[]);
+  reviews  = loadData('tz_reviews',{});
   config   = loadData('tz_config',{nombre:'NafTech Store',wa:'573000000000',waMsg:'Hola! Me interesa un producto de tu tienda 👋',pass:ADMIN_PASS_DEFAULT});
   renderStore();
   if (location.hash === '#admin') goAdmin({ preventDefault: ()=>{} });
