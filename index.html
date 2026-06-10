@@ -691,7 +691,7 @@ function moveCardCarousel(e,id,dir){
 }
 
 // ─── MODAL DETALLE ───
-async function openDetail(id){
+function openDetail(id){
   const p=products.find(x=>x.id===id); if(!p) return;
   currentDetailMedia=p.media||[];
   currentDetailIdx=0;
@@ -723,11 +723,10 @@ async function openDetail(id){
   const st=p.stock===0?'Sin stock':p.stock<=p.stockMin?`⚠️ Solo ${p.stock} disponibles`:`✅ ${p.stock} en stock`;
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
   document.getElementById('dDesc').innerHTML=renderDesc(p.descripcion||'');
-  // Reviews from Firestore
+  // Reviews
   const reviewsContainer = document.getElementById('dReviews');
   reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Cargando reseñas...</div>';
-  try {
-    const productReviews = await loadReviews(p.id);
+  loadReviews(p.id).then(productReviews => {
     let html = '';
     if (productReviews.length > 0) {
       html = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
@@ -740,9 +739,9 @@ async function openDetail(id){
         <button class="detail-wa" onclick="submitReview('${p.id}')">⭐ Enviar reseña</button>
       </div>`;
     reviewsContainer.innerHTML = html;
-  } catch(e) {
-    reviewsContainer.innerHTML = '<div style="color:var(--red);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
-  }
+  }).catch(() => {
+    reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
+  });
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
   document.getElementById('detailModal').classList.add('open');
