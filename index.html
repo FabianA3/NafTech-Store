@@ -576,6 +576,7 @@ async function importData(input) {
 let products = [];
 let ventas = [];
 let config = {};
+let currentProductId = null;
 
 // ════ NAVEGACIÓN ════
 function showPage(id){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
@@ -693,6 +694,7 @@ function moveCardCarousel(e,id,dir){
 // ─── MODAL DETALLE ───
 function openDetail(id){
   const p=products.find(x=>x.id===id); if(!p) return;
+  currentProductId = id;
   currentDetailMedia=p.media||[];
   currentDetailIdx=0;
   // Build track
@@ -739,8 +741,14 @@ function openDetail(id){
         <button class="detail-wa" id="reviewSubmitBtn">⭐ Enviar reseña</button>
       </div>`;
     reviewsContainer.innerHTML = html;
-    document.getElementById('reviewSubmitBtn').onclick = () => submitReview(p.id);
-  }).catch(() => {
+    setTimeout(() => {
+      const btn = document.getElementById('reviewSubmitBtn');
+      if (btn) btn.onclick = function(){ submitReview(); };
+      const inp = document.getElementById('reviewName');
+      if (inp) inp.onkeydown = function(e){ if(e.key==='Enter') submitReview(); };
+    }, 0);
+  }).catch(e => {
+    console.error('Reviews error:', e);
     reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
   });
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
@@ -749,7 +757,9 @@ function openDetail(id){
   requestAnimationFrame(()=>document.getElementById('detailModal').querySelector('.detail-modal').scrollTop=0);
 }
 
-async function submitReview(productId) {
+async function submitReview() {
+  const productId = currentProductId;
+  if (!productId) return;
   const nombre = document.getElementById('reviewName').value.trim();
   const texto = document.getElementById('reviewText').value.trim();
   if (!nombre || !texto) { showToast('Completa tu nombre y la reseña','error'); return; }
@@ -764,6 +774,7 @@ async function submitReview(productId) {
     showToast('¡Reseña enviada! Gracias ⭐','success');
     openDetail(productId);
   } catch(e) {
+    console.error('Submit review error:', e);
     showToast('Error al enviar reseña. Intenta de nuevo.','error');
   }
 }
@@ -896,9 +907,10 @@ function removeMedia(idx){ currentMedia.splice(idx,1); renderMediaPreviews(); }
 async function loadReviews(productId) {
   const snap = await db.collection('reviews')
     .where('productId', '==', productId)
-    .orderBy('createdAt', 'asc')
     .get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  list.sort((a, b) => (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
+  return list;
 }
 
 function renderAdminReviews(reviewsList) {
