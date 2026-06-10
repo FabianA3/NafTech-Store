@@ -462,7 +462,20 @@ tr:hover td { background: var(--surface2); }
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore-compat.js"></script>
 <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBslb4yD7A3dH1BYrmDcFT409-SPQb3U2c",
+  authDomain: "naftech-store.firebaseapp.com",
+  projectId: "naftech-store",
+  storageBucket: "naftech-store.firebasestorage.app",
+  messagingSenderId: "1061055630590",
+  appId: "1:1061055630590:web:e77454a50c4f7a15ae69af"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // ════ ESTADO ════
 const ADMIN_PASS_DEFAULT = 'admin123';
 const _dbCache = {};
@@ -503,7 +516,6 @@ async function dbSet(key, value) {
 const _dbDefaults = {
   tz_products: [],
   tz_ventas: [],
-  tz_reviews: {},
   tz_config: { nombre: 'NafTech Store', wa: '573000000000', waMsg: 'Hola! Me interesa un producto de tu tienda 👋', pass: ADMIN_PASS_DEFAULT }
 };
 
@@ -564,7 +576,6 @@ async function importData(input) {
 let products = [];
 let ventas = [];
 let config = {};
-let reviews = {};
 
 // ════ NAVEGACIÓN ════
 function showPage(id){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
@@ -643,7 +654,6 @@ function renderProductCards(list){
     const dotsHTML=media.length>1?media.map((_,i)=>`<div class="carousel-dot ${i===0?'active':''}" id="dot-${p.id}-${i}"></div>`).join(''):'';
     const precio=formatPrecio(p.precio);
     const descHTML=renderDesc(p.descripcion||'');
-    const reviewCount=(reviews[p.id]||[]).length;
     return `<div class="product-card">
       <div class="card-category">${p.categoria}</div>
       <div class="card-carousel" id="cc-${p.id}">
@@ -658,7 +668,6 @@ function renderProductCards(list){
           <div class="product-price">$${precio}</div>
           <span class="stock-badge ${sc}">${st}</span>
         </div>
-        ${reviewCount>0?`<div style="font-size:0.75rem;color:var(--accent2);margin-top:4px">⭐ ${reviewCount} reseña${reviewCount>1?'s':''}</div>`:''}
       </div>
       <button class="product-wa-btn" onclick="openDetail('${p.id}')">👁 Ver detalle</button>
     </div>`;
@@ -682,7 +691,7 @@ function moveCardCarousel(e,id,dir){
 }
 
 // ─── MODAL DETALLE ───
-function openDetail(id){
+async function openDetail(id){
   const p=products.find(x=>x.id===id); if(!p) return;
   currentDetailMedia=p.media||[];
   currentDetailIdx=0;
@@ -714,20 +723,49 @@ function openDetail(id){
   const st=p.stock===0?'Sin stock':p.stock<=p.stockMin?`⚠️ Solo ${p.stock} disponibles`:`✅ ${p.stock} en stock`;
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
   document.getElementById('dDesc').innerHTML=renderDesc(p.descripcion||'');
-  // Reviews
+  // Reviews from Firestore
   const reviewsContainer = document.getElementById('dReviews');
-  const productReviews = (reviews[p.id]||[]);
-  let reviewsHTML = '';
-  if (productReviews.length > 0) {
-    reviewsHTML = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
-      productReviews.map(r => `<div class="detail-review-item"><div><span class="detail-review-author">${r.nombre}</span><span class="detail-review-date">${r.fecha}</span></div><div class="detail-review-text">${r.texto}</div></div>`).join('');
+  reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Cargando reseñas...</div>';
+  try {
+    const productReviews = await loadReviews(p.id);
+    let html = '';
+    if (productReviews.length > 0) {
+      html = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
+        productReviews.map(r => `<div class="detail-review-item"><div><span class="detail-review-author">${r.nombre}</span><span class="detail-review-date">${r.fecha}</span></div><div class="detail-review-text">${r.texto}</div></div>`).join('');
+    }
+    html += `<div class="detail-reviews-title" style="margin-top:12px">✏️ Deja tu reseña</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input type="text" id="reviewName" placeholder="Tu nombre" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none">
+        <textarea id="reviewText" placeholder="Escribe tu reseña..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;min-height:70px;resize:vertical"></textarea>
+        <button class="detail-wa" onclick="submitReview('${p.id}')">⭐ Enviar reseña</button>
+      </div>`;
+    reviewsContainer.innerHTML = html;
+  } catch(e) {
+    reviewsContainer.innerHTML = '<div style="color:var(--red);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
   }
-  reviewsHTML += `<button class="detail-review-wa-btn" onclick="window.open('https://wa.me/${config.wa}?text=${encodeURIComponent('Hola! Quiero dejar una reseña para: *' + p.nombre + '*')}','_blank')">💬 Dejar una reseña</button>`;
-  reviewsContainer.innerHTML = reviewsHTML;
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
   document.getElementById('detailModal').classList.add('open');
   requestAnimationFrame(()=>document.getElementById('detailModal').querySelector('.detail-modal').scrollTop=0);
+}
+
+async function submitReview(productId) {
+  const nombre = document.getElementById('reviewName').value.trim();
+  const texto = document.getElementById('reviewText').value.trim();
+  if (!nombre || !texto) { showToast('Completa tu nombre y la reseña','error'); return; }
+  try {
+    await db.collection('reviews').add({
+      productId, nombre, texto,
+      fecha: new Date().toLocaleDateString('es-CO'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('reviewName').value = '';
+    document.getElementById('reviewText').value = '';
+    showToast('¡Reseña enviada! Gracias ⭐','success');
+    openDetail(productId);
+  } catch(e) {
+    showToast('Error al enviar reseña. Intenta de nuevo.','error');
+  }
 }
 
 function moveDetailCarousel(dir){
@@ -740,7 +778,7 @@ function moveDetailCarousel(dir){
 }
 
 // ════ ADMIN ════
-function refreshAdmin(){ products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]); reviews=loadData('tz_reviews',{}); config=loadData('tz_config',{nombre:'TechZone',wa:'573000000000',waMsg:'Hola!',pass:ADMIN_PASS_DEFAULT}); renderDashboard(); renderProductsTable(); renderVentaForm(); renderHistorial(); }
+function refreshAdmin(){ products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]); config=loadData('tz_config',{nombre:'TechZone',wa:'573000000000',waMsg:'Hola!',pass:ADMIN_PASS_DEFAULT}); renderDashboard(); renderProductsTable(); renderVentaForm(); renderHistorial(); }
 
 function renderDashboard(){
   products=loadData('tz_products',[]); ventas=loadData('tz_ventas',[]);
@@ -804,7 +842,7 @@ function openProductModal(id=null){
     currentMedia=[...(p.media||[])];
     renderMediaPreviews();
     document.getElementById('reviewsAdminSection').style.display='block';
-    renderAdminReviews(reviews[id]||[]);
+    loadReviews(id).then(list => renderAdminReviews(list));
   } else {
     document.getElementById('pNombre').value = '';
     document.getElementById('pPrecio').value = '';
@@ -823,8 +861,6 @@ function deleteProduct(id){
   if(!confirm('¿Eliminar este producto?')) return;
   products=products.filter(p=>p.id!==id);
   saveData('tz_products',products);
-  delete reviews[id];
-  saveData('tz_reviews', reviews);
   renderProductsTable(); renderStore();
   showToast('Producto eliminado','info');
 }
@@ -856,42 +892,56 @@ function renderMediaPreviews(){
 
 function removeMedia(idx){ currentMedia.splice(idx,1); renderMediaPreviews(); }
 
+// ─── RESEÑAS (Firebase) ───
+async function loadReviews(productId) {
+  const snap = await db.collection('reviews')
+    .where('productId', '==', productId)
+    .orderBy('createdAt', 'asc')
+    .get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 function renderAdminReviews(reviewsList) {
   const container = document.getElementById('reviewsAdminList');
   if (!reviewsList || reviewsList.length === 0) {
     container.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Sin reseñas aún</div>';
     return;
   }
-  container.innerHTML = reviewsList.map((r,i) =>
+  container.innerHTML = reviewsList.map(r =>
     `<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px">
       <div style="flex:1"><strong style="color:var(--accent2);font-size:0.85rem">${r.nombre}</strong><span style="color:var(--text2);font-size:0.75rem;margin-left:8px">${r.fecha}</span><br><span style="font-size:0.82rem;color:var(--text2)">${r.texto}</span></div>
-      <button class="btn btn-danger btn-sm" onclick="deleteReview(${i})">✕</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}')">✕</button>
     </div>`
   ).join('');
 }
 
-function addReview() {
+async function addReview() {
   const nombre = document.getElementById('revNombre').value.trim();
   const texto = document.getElementById('revTexto').value.trim();
   if (!nombre || !texto) { showToast('Completa nombre y texto de la reseña','error'); return; }
   const productId = editingId;
   if (!productId) return;
-  reviews[productId] = reviews[productId] || [];
-  reviews[productId].push({ nombre, texto, fecha: new Date().toLocaleDateString('es-CO') });
-  saveData('tz_reviews', reviews);
+  await db.collection('reviews').add({
+    productId, nombre, texto,
+    fecha: new Date().toLocaleDateString('es-CO'),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
   document.getElementById('revNombre').value = '';
   document.getElementById('revTexto').value = '';
-  renderAdminReviews(reviews[productId]);
+  const list = await loadReviews(productId);
+  renderAdminReviews(list);
   showToast('Reseña agregada ✓','success');
 }
 
-function deleteReview(idx) {
+async function deleteReview(id) {
+  if (!confirm('¿Eliminar esta reseña?')) return;
+  await db.collection('reviews').doc(id).delete();
   const productId = editingId;
-  if (!productId || !reviews[productId]) return;
-  reviews[productId].splice(idx, 1);
-  if (reviews[productId].length === 0) delete reviews[productId];
-  saveData('tz_reviews', reviews);
-  renderAdminReviews(reviews[productId]||[]);
+  if (productId) {
+    const list = await loadReviews(productId);
+    renderAdminReviews(list);
+  }
+  showToast('Reseña eliminada','info');
 }
 
 async function saveProduct(){
@@ -1024,7 +1074,6 @@ function saveConfig(){ config.nombre=document.getElementById('cfgNombre').value.
   await initStorage();
   products = loadData('tz_products',[]);
   ventas   = loadData('tz_ventas',[]);
-  reviews  = loadData('tz_reviews',{});
   config   = loadData('tz_config',{nombre:'NafTech Store',wa:'573000000000',waMsg:'Hola! Me interesa un producto de tu tienda 👋',pass:ADMIN_PASS_DEFAULT});
   renderStore();
   if (location.hash === '#admin') goAdmin({ preventDefault: ()=>{} });
