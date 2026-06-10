@@ -462,20 +462,7 @@ tr:hover td { background: var(--surface2); }
 
 <div class="toast" id="toast"></div>
 
-<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBslb4yD7A3dH1BYrmDcFT409-SPQb3U2c",
-  authDomain: "naftech-store.firebaseapp.com",
-  projectId: "naftech-store",
-  storageBucket: "naftech-store.firebasestorage.app",
-  messagingSenderId: "1061055630590",
-  appId: "1:1061055630590:web:e77454a50c4f7a15ae69af"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
 // ════ ESTADO ════
 const ADMIN_PASS_DEFAULT = 'admin123';
 const _dbCache = {};
@@ -516,6 +503,7 @@ async function dbSet(key, value) {
 const _dbDefaults = {
   tz_products: [],
   tz_ventas: [],
+  tz_reviews: [],
   tz_config: { nombre: 'NafTech Store', wa: '573000000000', waMsg: 'Hola! Me interesa un producto de tu tienda 👋', pass: ADMIN_PASS_DEFAULT }
 };
 
@@ -552,7 +540,7 @@ async function saveDataAsync(k, v) { _dbCache[k] = v; try { await dbSet(k, v); }
 function saveData(k, v) { _dbCache[k] = v; dbSet(k, v).catch(e => console.error('IndexedDB error', e)); }
 
 function exportData() {
-  const data = { tz_products: loadData('tz_products', []), tz_ventas: loadData('tz_ventas', []), tz_config: loadData('tz_config', {}) };
+  const data = { tz_products: loadData('tz_products', []), tz_ventas: loadData('tz_ventas', []), tz_reviews: loadData('tz_reviews', []), tz_config: loadData('tz_config', {}) };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'naftech-backup.json'; a.click();
@@ -566,6 +554,7 @@ async function importData(input) {
     const data = JSON.parse(text);
     if (data.tz_products !== undefined) await saveDataAsync('tz_products', data.tz_products);
     if (data.tz_ventas !== undefined) await saveDataAsync('tz_ventas', data.tz_ventas);
+    if (data.tz_reviews !== undefined) await saveDataAsync('tz_reviews', data.tz_reviews);
     if (data.tz_config !== undefined) await saveDataAsync('tz_config', data.tz_config);
     products = loadData('tz_products', []); ventas = loadData('tz_ventas', []); config = loadData('tz_config', {});
     alert('✅ Datos importados correctamente. Recarga la página para aplicar los cambios.');
@@ -726,71 +715,55 @@ function openDetail(id){
   document.getElementById('dStock').innerHTML=`<span class="stock-badge ${sc}">${st}</span>`;
   document.getElementById('dDesc').innerHTML=renderDesc(p.descripcion||'');
   // Reviews
+  const allReviews = loadData('tz_reviews', []);
+  const productReviews = allReviews.filter(r => r.productId === p.id);
   const reviewsContainer = document.getElementById('dReviews');
-  reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Cargando reseñas...</div>';
-  loadReviews(p.id).then(productReviews => {
-    let html = '';
-    if (productReviews.length > 0) {
-      html = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
-        productReviews.map(r => `<div class="detail-review-item"><div><span class="detail-review-author">${r.nombre}</span><span class="detail-review-date">${r.fecha}</span></div><div class="detail-review-text">${r.texto}</div></div>`).join('');
-    }
-    html += `<div class="detail-reviews-title" style="margin-top:12px">✏️ Deja tu reseña</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <input type="text" id="reviewName" placeholder="Tu nombre" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none">
-        <textarea id="reviewText" placeholder="Escribe tu reseña..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;min-height:70px;resize:vertical"></textarea>
-        <button class="detail-wa" id="reviewSubmitBtn">⭐ Enviar reseña</button>
-      </div>`;
-    reviewsContainer.innerHTML = html;
-    setTimeout(() => {
-      const btn = document.getElementById('reviewSubmitBtn');
-      if (btn) btn.onclick = function(){ submitReview(); };
-      const inp = document.getElementById('reviewName');
-      if (inp) inp.onkeydown = function(e){ if(e.key==='Enter') submitReview(); };
-    }, 0);
-  }).catch(e => {
-    console.error('Reviews error:', e);
-    const blocked = e.toString().includes('BLOCKED_BY_CLIENT');
-    reviewsContainer.innerHTML = blocked
-      ? `<div style="color:var(--text2);font-size:0.85rem;padding:8px 0;text-align:center">
-          ⚠️ Tu navegador bloquea las reseñas en línea.<br>
-          <button class="detail-review-wa-btn" style="margin-top:8px" onclick="window.open('https://wa.me/${config.wa}?text=${encodeURIComponent('Hola! Quiero dejar una reseña')}','_blank')">💬 Enviar reseña por WhatsApp</button>
-        </div>`
-      : '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
-  });
+  let html = '';
+  if (productReviews.length > 0) {
+    html = `<div class="detail-reviews-title">⭐ Reseñas (${productReviews.length})</div>` +
+      productReviews.map(r => `<div class="detail-review-item"><div><span class="detail-review-author">${r.nombre}</span><span class="detail-review-date">${r.fecha}</span></div><div class="detail-review-text">${r.texto}</div></div>`).join('');
+  }
+  html += `<div class="detail-reviews-title" style="margin-top:12px">✏️ Deja tu reseña</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="reviewName" placeholder="Tu nombre" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none">
+      <textarea id="reviewText" placeholder="Escribe tu reseña..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;min-height:70px;resize:vertical"></textarea>
+      <button class="detail-wa" id="reviewSubmitBtn">⭐ Enviar reseña</button>
+    </div>`;
+  reviewsContainer.innerHTML = html;
+  setTimeout(() => {
+    const btn = document.getElementById('reviewSubmitBtn');
+    if (btn) btn.onclick = function(){ submitReview(); };
+    const inp = document.getElementById('reviewName');
+    if (inp) inp.onkeydown = function(e){ if(e.key==='Enter') submitReview(); };
+  }, 0);
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
   document.getElementById('detailModal').classList.add('open');
   requestAnimationFrame(()=>document.getElementById('detailModal').querySelector('.detail-modal').scrollTop=0);
 }
 
-async function submitReview() {
+function submitReview() {
   const productId = currentProductId;
   if (!productId) return;
   const nombre = document.getElementById('reviewName').value.trim();
   const texto = document.getElementById('reviewText').value.trim();
   if (!nombre || !texto) { showToast('Completa tu nombre y la reseña','error'); return; }
-  try {
-    await db.collection('reviews').add({
-      productId, nombre, texto,
-      fecha: new Date().toLocaleDateString('es-CO'),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    document.getElementById('reviewName').value = '';
-    document.getElementById('reviewText').value = '';
-    showToast('¡Reseña enviada! Gracias ⭐','success');
-    openDetail(productId);
-  } catch(e) {
-    console.error('Submit review error:', e);
-    const blocked = e.toString().includes('BLOCKED_BY_CLIENT');
-    if (blocked) {
-      const p = products.find(x => x.id === currentProductId);
-      const msg = encodeURIComponent(`Hola! Quiero dejar una reseña para: *${p ? p.nombre : ''}*\n\nNombre: ${nombre}\nReseña: ${texto}`);
-      showToast('🔒 Bloqueado por el navegador. Usa WhatsApp para enviar tu reseña.','info');
-      window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
-    } else {
-      showToast('Error al enviar reseña. Intenta de nuevo.','error');
-    }
-  }
+  const p = products.find(x => x.id === productId);
+  const review = {
+    id: Date.now().toString(),
+    productId, nombre, texto,
+    fecha: new Date().toLocaleDateString('es-CO')
+  };
+  const reviews = loadData('tz_reviews', []);
+  reviews.push(review);
+  saveData('tz_reviews', reviews);
+  document.getElementById('reviewName').value = '';
+  document.getElementById('reviewText').value = '';
+  showToast('¡Reseña enviada! Gracias ⭐','success');
+  openDetail(productId);
+  // Notificar al admin por WhatsApp
+  const waMsg = encodeURIComponent(`📝 *Nueva reseña recibida*\n\nProducto: ${p ? p.nombre : ''}\nCliente: ${nombre}\nReseña: ${texto}`);
+  window.open(`https://wa.me/${config.wa}?text=${waMsg}`,'_blank');
 }
 
 function moveDetailCarousel(dir){
@@ -867,7 +840,7 @@ function openProductModal(id=null){
     currentMedia=[...(p.media||[])];
     renderMediaPreviews();
     document.getElementById('reviewsAdminSection').style.display='block';
-    loadReviews(id).then(list => renderAdminReviews(list));
+    renderAdminReviews();
   } else {
     document.getElementById('pNombre').value = '';
     document.getElementById('pPrecio').value = '';
@@ -917,23 +890,21 @@ function renderMediaPreviews(){
 
 function removeMedia(idx){ currentMedia.splice(idx,1); renderMediaPreviews(); }
 
-// ─── RESEÑAS (Firebase) ───
-async function loadReviews(productId) {
-  const snap = await db.collection('reviews')
-    .where('productId', '==', productId)
-    .get();
-  const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  list.sort((a, b) => (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0));
-  return list;
+// ─── RESEÑAS (IndexedDB) ───
+function getProductReviews(productId) {
+  const all = loadData('tz_reviews', []);
+  return all.filter(r => r.productId === productId);
 }
 
-function renderAdminReviews(reviewsList) {
+function renderAdminReviews() {
   const container = document.getElementById('reviewsAdminList');
-  if (!reviewsList || reviewsList.length === 0) {
+  if (!editingId) { container.innerHTML = ''; return; }
+  const list = getProductReviews(editingId);
+  if (list.length === 0) {
     container.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Sin reseñas aún</div>';
     return;
   }
-  container.innerHTML = reviewsList.map(r =>
+  container.innerHTML = list.map(r =>
     `<div style="display:flex;gap:8px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px">
       <div style="flex:1"><strong style="color:var(--accent2);font-size:0.85rem">${r.nombre}</strong><span style="color:var(--text2);font-size:0.75rem;margin-left:8px">${r.fecha}</span><br><span style="font-size:0.82rem;color:var(--text2)">${r.texto}</span></div>
       <button class="btn btn-danger btn-sm" onclick="deleteReview('${r.id}')">✕</button>
@@ -941,32 +912,31 @@ function renderAdminReviews(reviewsList) {
   ).join('');
 }
 
-async function addReview() {
+function addReview() {
   const nombre = document.getElementById('revNombre').value.trim();
   const texto = document.getElementById('revTexto').value.trim();
   if (!nombre || !texto) { showToast('Completa nombre y texto de la reseña','error'); return; }
   const productId = editingId;
   if (!productId) return;
-  await db.collection('reviews').add({
+  const reviews = loadData('tz_reviews', []);
+  reviews.push({
+    id: Date.now().toString() + Math.random().toString(36).slice(2,6),
     productId, nombre, texto,
-    fecha: new Date().toLocaleDateString('es-CO'),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    fecha: new Date().toLocaleDateString('es-CO')
   });
+  saveData('tz_reviews', reviews);
   document.getElementById('revNombre').value = '';
   document.getElementById('revTexto').value = '';
-  const list = await loadReviews(productId);
-  renderAdminReviews(list);
+  renderAdminReviews();
   showToast('Reseña agregada ✓','success');
 }
 
-async function deleteReview(id) {
+function deleteReview(id) {
   if (!confirm('¿Eliminar esta reseña?')) return;
-  await db.collection('reviews').doc(id).delete();
-  const productId = editingId;
-  if (productId) {
-    const list = await loadReviews(productId);
-    renderAdminReviews(list);
-  }
+  let reviews = loadData('tz_reviews', []);
+  reviews = reviews.filter(r => r.id !== id);
+  saveData('tz_reviews', reviews);
+  renderAdminReviews();
   showToast('Reseña eliminada','info');
 }
 
