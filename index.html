@@ -749,7 +749,13 @@ function openDetail(id){
     }, 0);
   }).catch(e => {
     console.error('Reviews error:', e);
-    reviewsContainer.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
+    const blocked = e.toString().includes('BLOCKED_BY_CLIENT');
+    reviewsContainer.innerHTML = blocked
+      ? `<div style="color:var(--text2);font-size:0.85rem;padding:8px 0;text-align:center">
+          ⚠️ Tu navegador bloquea las reseñas en línea.<br>
+          <button class="detail-review-wa-btn" style="margin-top:8px" onclick="window.open('https://wa.me/${config.wa}?text=${encodeURIComponent('Hola! Quiero dejar una reseña')}','_blank')">💬 Enviar reseña por WhatsApp</button>
+        </div>`
+      : '<div style="color:var(--text2);font-size:0.85rem;padding:8px 0">Error al cargar reseñas</div>';
   });
   const msg=encodeURIComponent(`Hola! Me interesa: *${p.nombre}* — $${formatPrecio(p.precio)}. ¿Está disponible? 👋`);
   document.getElementById('dWaBtn').onclick=()=>window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
@@ -775,7 +781,15 @@ async function submitReview() {
     openDetail(productId);
   } catch(e) {
     console.error('Submit review error:', e);
-    showToast('Error al enviar reseña. Intenta de nuevo.','error');
+    const blocked = e.toString().includes('BLOCKED_BY_CLIENT');
+    if (blocked) {
+      const p = products.find(x => x.id === currentProductId);
+      const msg = encodeURIComponent(`Hola! Quiero dejar una reseña para: *${p ? p.nombre : ''}*\n\nNombre: ${nombre}\nReseña: ${texto}`);
+      showToast('🔒 Bloqueado por el navegador. Usa WhatsApp para enviar tu reseña.','info');
+      window.open(`https://wa.me/${config.wa}?text=${msg}`,'_blank');
+    } else {
+      showToast('Error al enviar reseña. Intenta de nuevo.','error');
+    }
   }
 }
 
